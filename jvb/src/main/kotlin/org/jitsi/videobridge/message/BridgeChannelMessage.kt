@@ -276,6 +276,10 @@ class DominantSpeakerMessage @JvmOverloads constructor(
         previousSpeakers.drop(1),
         silence
     )
+
+    /** The speaker event timestamp in millisecond */
+    val timestamp: Long = System.currentTimeMillis()
+
     companion object {
         const val TYPE = "DominantSpeakerEndpointChangeEvent"
     }
