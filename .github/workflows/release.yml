@@ -1,0 +1,68 @@
+name: Release
+
+# gh workflow run release.yml --ref release-workflow -f branch=<branch> -f tag=<tag>
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Target branch'
+        required: true
+        type: string
+      tag:
+        description: 'Target tag'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  # Java version to use for the release
+  RELEASE_JAVA_VERSION: 8
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # The branch, tag or SHA to checkout. When checking out the repository that
+          # triggered a workflow, this defaults to the reference or SHA for that event.
+          # Otherwise, uses the default branch.
+          ref: ${{ inputs.branch }}
+          # Whether to fetch tags, even if fetch-depth > 0.
+          # Default: false
+          fetch-tags: true
+
+      - name: Real SHA
+        run: |
+          # Workaround due to https://github.com/rickstaa/action-create-tag/issues/36
+          echo "GITHUB_SHA=$(git log -1 --format='%H')" >> "$GITHUB_ENV"
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 11
+          cache: maven
+
+      - name: Build with Maven
+        run: mvn package -B -D maven.test.skip=true -D assembly.skipAssembly=false
+
+      - name: Create Tag
+        run: |
+          git config --global user.name "${{ github.actor }}"
+          git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+          git tag -f -a ${{ inputs.tag }} -m "Release ${{ inputs.tag }}"
+          git push -f origin ${{ inputs.tag }}
+
+      - uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ inputs.tag }}
+          prerelease: true
+          fail_on_unmatched_files: true
+          files: |
+            jvb/target/jitsi-videobridge-2.3-SNAPSHOT.jar
